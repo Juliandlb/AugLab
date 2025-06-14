@@ -78,8 +78,8 @@ def create_interface():
     with gr.Blocks(title="AugLab - Interactive Augmentation Playground") as app:
         gr.Markdown("# AugLab - Interactive Augmentation Playground")
         
+        # Top controls: upload, frame slider, file type
         with gr.Row():
-            # Input section
             with gr.Column():
                 input_file = gr.File(label="Upload Image/Video/JSONL")
                 frame_slider = gr.Slider(
@@ -90,11 +90,13 @@ def create_interface():
                     interactive=True
                 )
                 file_type = gr.Textbox(label="File Type", interactive=False)
-            
-            # Preview section
-            with gr.Column():
+        
+        # Full-width preview row
+        with gr.Row():
+            with gr.Column(scale=1):
                 original_preview = gr.Image(label="Original")
-                augmented_preview = gr.Image(label="Augmented")
+            with gr.Column(scale=1):
+                augmented_preview = gr.Image(label="Augmented", interactive=False)
         
         # Augmentation controls
         with gr.Row():
