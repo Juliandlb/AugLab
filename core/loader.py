@@ -5,6 +5,40 @@ import numpy as np
 import base64
 from pathlib import Path
 import imageio
+import subprocess
+import tempfile
+import os
+
+def get_video_codec(file_path: str) -> str:
+    """
+    Returns the codec name of the first video stream in the file using ffprobe.
+    """
+    try:
+        result = subprocess.run([
+            'ffprobe', '-v', 'error', '-select_streams', 'v:0',
+            '-show_entries', 'stream=codec_name',
+            '-of', 'default=nw=1', file_path
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        for line in result.stdout.splitlines():
+            if line.startswith('codec_name='):
+                return line.split('=')[1].strip()
+        return None
+    except Exception:
+        return None
+
+def convert_video_to_h264(input_path: str) -> str:
+    """
+    Converts a video to H.264 codec using ffmpeg and returns the path to the converted file.
+    """
+    temp_dir = tempfile.gettempdir()
+    output_path = os.path.join(temp_dir, f"converted_{os.path.basename(input_path)}")
+    command = [
+        'ffmpeg', '-y', '-i', input_path,
+        '-c:v', 'libx264', '-crf', '23', '-preset', 'fast',
+        '-c:a', 'copy', output_path
+    ]
+    subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return output_path
 
 def load_data(file_path: str) -> Tuple[Union[np.ndarray, List[np.ndarray], Dict], str]:
     """
@@ -27,7 +61,16 @@ def load_data(file_path: str) -> Tuple[Union[np.ndarray, List[np.ndarray], Dict]
     if file_path.suffix.lower() in ['.jpg', '.jpeg', '.png']:
         return load_image(str(file_path)), 'image'
     elif file_path.suffix.lower() in ['.mp4', '.avi', '.mov']:
-        return load_video(str(file_path)), 'video'
+        # Check codec and convert if needed
+        codec = get_video_codec(str(file_path))
+        if codec and codec != 'h264':
+            converted_path = convert_video_to_h264(str(file_path))
+            frames = load_video(converted_path)
+            # Optionally, clean up the temp file after loading
+            os.remove(converted_path)
+            return frames, 'video'
+        else:
+            return load_video(str(file_path)), 'video'
     elif file_path.suffix.lower() == '.jsonl':
         return load_jsonl(str(file_path)), 'jsonl'
     else:
