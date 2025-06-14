@@ -176,84 +176,104 @@ def create_interface():
                 'contrast': contrast_val
             }
             frame, total_frames, file_type_val, aug_img, filename = interface.load_file(file_obj)
-            return frame, total_frames, file_type_val, aug_img, filename, 0
+            # Get recommendations for the first frame
+            if frame is not None:
+                stats = analyze_sample(frame)
+                recommendations = get_recommendations(stats)
+                recommendations_text = "\n".join(recommendations) if recommendations else "No recommendations at this time."
+            else:
+                recommendations_text = "No recommendations available."
+            return frame, total_frames, file_type_val, aug_img, filename, 0, recommendations_text
         
         def on_frame_change(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val):
             frame = interface.get_frame(frame_idx)
             aug_img = interface.get_augmented(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val)
-            return frame, aug_img
+            # Get recommendations based on current frame
+            stats = analyze_sample(frame)
+            recommendations = get_recommendations(stats)
+            return frame, aug_img, "\n".join(recommendations) if recommendations else "No recommendations at this time."
         
         def on_left(current_idx, flip_mode_val, rotation_val, brightness_val, contrast_val):
             idx = max(0, current_idx - 1)
             frame = interface.get_frame(idx)
             aug_img = interface.get_augmented(idx, flip_mode_val, rotation_val, brightness_val, contrast_val)
-            return idx, frame, aug_img
+            # Get recommendations based on current frame
+            stats = analyze_sample(frame)
+            recommendations = get_recommendations(stats)
+            return idx, frame, aug_img, "\n".join(recommendations) if recommendations else "No recommendations at this time."
         
         def on_right(current_idx, flip_mode_val, rotation_val, brightness_val, contrast_val):
             idx = min(interface.total_frames - 1, current_idx + 1)
             frame = interface.get_frame(idx)
             aug_img = interface.get_augmented(idx, flip_mode_val, rotation_val, brightness_val, contrast_val)
-            return idx, frame, aug_img
+            # Get recommendations based on current frame
+            stats = analyze_sample(frame)
+            recommendations = get_recommendations(stats)
+            return idx, frame, aug_img, "\n".join(recommendations) if recommendations else "No recommendations at this time."
         
         def on_apply(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val):
             aug_img = interface.get_augmented(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val)
-            return aug_img
+            # Get recommendations based on current frame
+            frame = interface.get_frame(frame_idx)
+            stats = analyze_sample(frame)
+            recommendations = get_recommendations(stats)
+            return aug_img, "\n".join(recommendations) if recommendations else "No recommendations at this time."
         
         # Connect events
         input_file.upload(
             fn=on_file_upload,
             inputs=[input_file, flip_mode, rotation, brightness, contrast],
-            outputs=[original_preview, frame_slider, file_type, augmented_preview, file_name, frame_slider]
+            outputs=[original_preview, frame_slider, file_type, augmented_preview, file_name, frame_slider, recommendations]
         )
         
         frame_slider.change(
             fn=on_frame_change,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
-            outputs=[original_preview, augmented_preview]
+            outputs=[original_preview, augmented_preview, recommendations]
         )
         
         left_btn.click(
             fn=on_left,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
-            outputs=[frame_slider, original_preview, augmented_preview]
+            outputs=[frame_slider, original_preview, augmented_preview, recommendations]
         )
         
         right_btn.click(
             fn=on_right,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
-            outputs=[frame_slider, original_preview, augmented_preview]
+            outputs=[frame_slider, original_preview, augmented_preview, recommendations]
         )
         
         # Add real-time updates for augmentation controls
         flip_mode.change(
             fn=on_apply,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
-            outputs=[augmented_preview]
+            outputs=[augmented_preview, recommendations]
         )
         
         rotation.change(
             fn=on_apply,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
-            outputs=[augmented_preview]
+            outputs=[augmented_preview, recommendations]
         )
         
         brightness.change(
             fn=on_apply,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
-            outputs=[augmented_preview]
+            outputs=[augmented_preview, recommendations]
         )
         
         contrast.change(
             fn=on_apply,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
-            outputs=[augmented_preview]
+            outputs=[augmented_preview, recommendations]
         )
         
         # Keep the apply button for explicit updates if needed
         apply_btn.click(
             fn=on_apply,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
-            outputs=[augmented_preview]
+            outputs=[augmented_preview, recommendations]
         )
     
     return app 
