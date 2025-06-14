@@ -16,11 +16,10 @@ An interactive tool for applying and experimenting with image augmentations on r
     - Saturation adjustment (0.0x to 2.0x)
   - **Occlusion** (random rectangle patch, size 0–0.5 ratio)
 - Live preview of augmented data with synchronized frame navigation
-- Smart augmentation recommendations based on image analysis:
-  - Brightness recommendations
-  - Contrast adjustments
-  - Sharpness improvements
-  - Saturation optimization (for color images)
+- Smart, actionable augmentation recommendations based on image analysis:
+  - Only suggests available controls: blur, color jitter (hue/saturation), occlusion, brightness, contrast, sharpness
+  - Context-aware advice (e.g., "Apply Blur to reduce sharpness", "Increase color vibrancy using Saturation slider")
+  - Brightness, contrast, sharpness, and saturation suggestions
 - Export augmented data and configurations (coming soon)
 
 ## Setup
@@ -67,7 +66,7 @@ auglab/
 
 ## Image Analysis Features
 
-The application analyzes images in real-time to provide smart augmentation recommendations:
+The application analyzes images in real-time to provide actionable, context-aware augmentation recommendations. Only implemented augmentations are suggested:
 
 - **Brightness Analysis**: Detects if images are too dark or too bright
 - **Contrast Analysis**: Measures image contrast and suggests adjustments
