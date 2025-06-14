@@ -12,6 +12,13 @@ class AugLabInterface:
         self.current_frame_idx = 0
         self.total_frames = 0
         self.current_filename = ""
+        self.aug_config = {
+            'flip_mode': 'none',
+            'rotation': 0,
+            'brightness': 1.0,
+            'contrast': 1.0
+        }
+        self.last_frame_idx = 0
 
     def load_file(self, file_obj: gr.File) -> Tuple[np.ndarray, int, str, np.ndarray, str]:
         """
@@ -43,14 +50,14 @@ class AugLabInterface:
                 self.total_frames = len(self.current_data['frames'])
             
             self.current_frame_idx = 0
-            # Augmented is just a flip for now
-            augmented = flip_image(first_frame)
-            return first_frame, self.total_frames, self.current_type, augmented, self.current_filename
+            self.last_frame_idx = 0
+            aug_img = apply_augmentation(first_frame, self.aug_config)
+            return first_frame, self.total_frames, self.current_type, aug_img, self.current_filename
             
         except Exception as e:
             return None, 0, f"Error loading file: {str(e)}", None, ""
 
-    def get_frame(self, frame_idx: int) -> Tuple[np.ndarray, np.ndarray]:
+    def get_frame(self, frame_idx: int) -> np.ndarray:
         """
         Get frame at specified index.
         
@@ -58,10 +65,10 @@ class AugLabInterface:
             frame_idx: Index of the frame to retrieve
             
         Returns:
-            Tuple of (original frame, augmented frame)
+            Original frame
         """
         if self.current_data is None:
-            return None, None
+            return None
             
         try:
             if self.current_type == 'image':
@@ -71,12 +78,22 @@ class AugLabInterface:
             elif self.current_type == 'jsonl':
                 frame = self.current_data['frames'][frame_idx]
             else:
-                return None, None
-            # Augmented is just a flip for now
-            augmented = flip_image(frame)
-            return frame, augmented
+                return None
+            return frame
         except IndexError:
-            return None, None
+            return None
+
+    def get_augmented(self, frame_idx: int, flip_mode: str, rotation: float, brightness: float, contrast: float) -> np.ndarray:
+        frame = self.get_frame(frame_idx)
+        if frame is None:
+            return None
+        config = {
+            'flip_mode': flip_mode,
+            'rotation': rotation,
+            'brightness': brightness,
+            'contrast': contrast
+        }
+        return apply_augmentation(frame, config)
 
 def create_interface():
     """
@@ -127,20 +144,19 @@ def create_interface():
                     left_btn = gr.Button("←", size="sm", variant="secondary", elem_classes=["arrow-btn"])
                     right_btn = gr.Button("→", size="sm", variant="secondary", elem_classes=["arrow-btn", "arrow-btn-right"])
         
-        # Bottom: Previews
+        # Previews above augmentation controls
         with gr.Row():
             original_preview = gr.Image(label="Original", elem_id="original_preview")
             augmented_preview = gr.Image(label="Augmented", interactive=False, elem_id="augmented_preview")
         
-        # Augmentation controls
+        # Augmentation controls below previews
         with gr.Row():
-            with gr.Column():
-                gr.Markdown("### Augmentation Controls")
-                flip_btn = gr.Button("Flip")
-                rotation_slider = gr.Slider(minimum=-180, maximum=180, step=1, label="Rotation")
-                brightness_slider = gr.Slider(minimum=0.0, maximum=2.0, step=0.1, label="Brightness")
-                contrast_slider = gr.Slider(minimum=0.0, maximum=2.0, step=0.1, label="Contrast")
-                blur_slider = gr.Slider(minimum=0, maximum=10, step=1, label="Blur")
+            with gr.Group():
+                flip_mode = gr.Dropdown(["none", "horizontal", "vertical"], value="none", label="Flip")
+                rotation = gr.Slider(minimum=-45, maximum=45, value=0, step=1, label="Rotation (degrees)")
+                brightness = gr.Slider(minimum=0.5, maximum=2.0, value=1.0, step=0.01, label="Brightness")
+                contrast = gr.Slider(minimum=0.5, maximum=2.0, value=1.0, step=0.01, label="Contrast")
+                apply_btn = gr.Button("Apply Augmentation", variant="primary")
         
         # Recommendations section
         with gr.Row():
@@ -152,48 +168,92 @@ def create_interface():
             save_config_btn = gr.Button("Save Augmentation Config")
         
         # Event handlers
-        def on_file_upload(file_obj):
-            frame, total_frames, file_type_val, augmented, filename = interface.load_file(file_obj)
-            # Always show first frame and set slider to 0
-            return frame, total_frames, file_type_val, augmented, filename, 0
+        def on_file_upload(file_obj, flip_mode_val, rotation_val, brightness_val, contrast_val):
+            interface.aug_config = {
+                'flip_mode': flip_mode_val,
+                'rotation': rotation_val,
+                'brightness': brightness_val,
+                'contrast': contrast_val
+            }
+            frame, total_frames, file_type_val, aug_img, filename = interface.load_file(file_obj)
+            return frame, total_frames, file_type_val, aug_img, filename, 0
         
-        def on_frame_change(frame_idx):
-            frame, augmented = interface.get_frame(frame_idx)
-            return frame, augmented
+        def on_frame_change(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val):
+            frame = interface.get_frame(frame_idx)
+            aug_img = interface.get_augmented(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val)
+            return frame, aug_img
         
-        def on_left(current_idx):
+        def on_left(current_idx, flip_mode_val, rotation_val, brightness_val, contrast_val):
             idx = max(0, current_idx - 1)
-            frame, augmented = interface.get_frame(idx)
-            return idx, frame, augmented
+            frame = interface.get_frame(idx)
+            aug_img = interface.get_augmented(idx, flip_mode_val, rotation_val, brightness_val, contrast_val)
+            return idx, frame, aug_img
         
-        def on_right(current_idx):
+        def on_right(current_idx, flip_mode_val, rotation_val, brightness_val, contrast_val):
             idx = min(interface.total_frames - 1, current_idx + 1)
-            frame, augmented = interface.get_frame(idx)
-            return idx, frame, augmented
+            frame = interface.get_frame(idx)
+            aug_img = interface.get_augmented(idx, flip_mode_val, rotation_val, brightness_val, contrast_val)
+            return idx, frame, aug_img
+        
+        def on_apply(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val):
+            aug_img = interface.get_augmented(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val)
+            return aug_img
         
         # Connect events
         input_file.upload(
             fn=on_file_upload,
-            inputs=[input_file],
+            inputs=[input_file, flip_mode, rotation, brightness, contrast],
             outputs=[original_preview, frame_slider, file_type, augmented_preview, file_name, frame_slider]
         )
         
         frame_slider.change(
             fn=on_frame_change,
-            inputs=[frame_slider],
+            inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
             outputs=[original_preview, augmented_preview]
         )
         
         left_btn.click(
             fn=on_left,
-            inputs=[frame_slider],
+            inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
             outputs=[frame_slider, original_preview, augmented_preview]
         )
         
         right_btn.click(
             fn=on_right,
-            inputs=[frame_slider],
+            inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
             outputs=[frame_slider, original_preview, augmented_preview]
+        )
+        
+        # Add real-time updates for augmentation controls
+        flip_mode.change(
+            fn=on_apply,
+            inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
+            outputs=[augmented_preview]
+        )
+        
+        rotation.change(
+            fn=on_apply,
+            inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
+            outputs=[augmented_preview]
+        )
+        
+        brightness.change(
+            fn=on_apply,
+            inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
+            outputs=[augmented_preview]
+        )
+        
+        contrast.change(
+            fn=on_apply,
+            inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
+            outputs=[augmented_preview]
+        )
+        
+        # Keep the apply button for explicit updates if needed
+        apply_btn.click(
+            fn=on_apply,
+            inputs=[frame_slider, flip_mode, rotation, brightness, contrast],
+            outputs=[augmented_preview]
         )
     
     return app 
