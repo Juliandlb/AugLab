@@ -11,7 +11,11 @@ An interactive tool for applying and experimenting with image augmentations on r
   - Brightness adjustment (0.5x to 2.0x)
   - Contrast adjustment (0.5x to 2.0x)
 - Live preview of augmented data with synchronized frame navigation
-- Smart augmentation recommendations (coming soon)
+- Smart augmentation recommendations based on image analysis:
+  - Brightness recommendations
+  - Contrast adjustments
+  - Sharpness improvements
+  - Saturation optimization (for color images)
 - Export augmented data and configurations (coming soon)
 
 ## Setup
@@ -42,7 +46,7 @@ auglab/
 ├── core/
 │   ├── loader.py       # Data loading utilities for images, videos, and JSONL
 │   ├── augment.py      # Augmentation functions (flip, rotate, brightness, contrast)
-│   ├── stats.py        # Image analysis and recommendations (in development)
+│   ├── stats.py        # Image analysis and recommendations
 │   └── utils.py        # Utility functions for config and data export (in development)
 └── assets/             # Static assets
 ```
@@ -53,8 +57,18 @@ auglab/
 - ✅ Real-time augmentation controls
 - ✅ Frame navigation with synchronized previews
 - ✅ Support for multiple file formats (images, videos, JSONL)
-- 🔄 Smart recommendations (in development)
+- ✅ Smart recommendations based on image analysis
 - 🔄 Export functionality (in development)
+
+## Image Analysis Features
+
+The application analyzes images in real-time to provide smart augmentation recommendations:
+
+- **Brightness Analysis**: Detects if images are too dark or too bright
+- **Contrast Analysis**: Measures image contrast and suggests adjustments
+- **Sharpness Detection**: Identifies blurry images and suggests improvements
+- **Saturation Analysis**: For color images, suggests saturation adjustments
+- **Entropy Calculation**: Measures image information content
 
 ## License
 
