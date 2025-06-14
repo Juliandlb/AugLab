@@ -144,8 +144,9 @@ def create_interface():
                 with gr.Row(elem_classes=["slider-row"]):
                     frame_slider = gr.Slider(
                         minimum=0,
-                        maximum=100,
+                        maximum=0,
                         step=1,
+                        value=0,
                         label="Frame",
                         interactive=True
                     )
@@ -199,7 +200,8 @@ def create_interface():
                 recommendations_text = "\n".join(recommendations) if recommendations else "No recommendations at this time."
             else:
                 recommendations_text = "No recommendations available."
-            return frame, total_frames, file_type_val, aug_img, filename, 0, recommendations_text
+            # Set slider max to total_frames-1 (since index is zero-based)
+            return frame, gr.update(maximum=max(0, total_frames-1), value=0, minimum=0), file_type_val, aug_img, filename, 0, recommendations_text
         
         def on_frame_change(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
             frame = interface.get_frame(frame_idx)
