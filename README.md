@@ -5,11 +5,16 @@ An interactive tool for applying and experimenting with image augmentations on r
 ## Features
 
 - Upload and view images, videos, or JSONL files
-- Interactive real-time augmentation controls:
+- Interactive real-time augmentation controls (all in one panel):
   - Image flipping (horizontal/vertical)
   - Rotation (-45° to 45°)
   - Brightness adjustment (0.5x to 2.0x)
   - Contrast adjustment (0.5x to 2.0x)
+  - **Blur** (Gaussian blur, kernel size 0–10)
+  - **Color jitter**:
+    - Hue shift (-90° to 90°)
+    - Saturation adjustment (0.0x to 2.0x)
+  - **Occlusion** (random rectangle patch, size 0–0.5 ratio)
 - Live preview of augmented data with synchronized frame navigation
 - Smart augmentation recommendations based on image analysis:
   - Brightness recommendations
@@ -42,10 +47,10 @@ python main.py
 auglab/
 ├── main.py              # Main entry point
 ├── ui/
-│   └── gradio_interface.py  # Gradio UI implementation with real-time controls
+│   └── gradio_interface.py  # Gradio UI implementation with all controls in one panel
 ├── core/
 │   ├── loader.py       # Data loading utilities for images, videos, and JSONL
-│   ├── augment.py      # Augmentation functions (flip, rotate, brightness, contrast)
+│   ├── augment.py      # Augmentation functions (flip, rotate, brightness, contrast, blur, color jitter, occlusion)
 │   ├── stats.py        # Image analysis and recommendations
 │   └── utils.py        # Utility functions for config and data export (in development)
 └── assets/             # Static assets
@@ -54,7 +59,7 @@ auglab/
 ## Current Status
 
 - ✅ Basic UI implementation with Gradio
-- ✅ Real-time augmentation controls
+- ✅ Real-time augmentation controls (full set)
 - ✅ Frame navigation with synchronized previews
 - ✅ Support for multiple file formats (images, videos, JSONL)
 - ✅ Smart recommendations based on image analysis
