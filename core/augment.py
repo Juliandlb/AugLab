@@ -19,8 +19,7 @@ def flip_image(image: np.ndarray) -> np.ndarray:
     """
     Flip the image horizontally.
     """
-    # TODO: Implement flip
-    pass
+    return np.fliplr(image) if image is not None else None
 
 def rotate_image(image: np.ndarray, angle: float) -> np.ndarray:
     """

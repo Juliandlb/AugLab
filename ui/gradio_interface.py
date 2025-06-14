@@ -1,7 +1,7 @@
 import gradio as gr
 import numpy as np
 from core.loader import load_data
-from core.augment import apply_augmentation
+from core.augment import apply_augmentation, flip_image
 from core.stats import analyze_sample, get_recommendations
 from typing import Tuple, Dict, Any
 
@@ -11,8 +11,9 @@ class AugLabInterface:
         self.current_type = None
         self.current_frame_idx = 0
         self.total_frames = 0
+        self.current_filename = ""
 
-    def load_file(self, file_obj: gr.File) -> Tuple[np.ndarray, int, str]:
+    def load_file(self, file_obj: gr.File) -> Tuple[np.ndarray, int, str, np.ndarray, str]:
         """
         Handle file upload and return the first frame.
         
@@ -20,14 +21,15 @@ class AugLabInterface:
             file_obj: Gradio File object
             
         Returns:
-            Tuple of (first frame, total frames, file type)
+            Tuple of (first frame, total frames, file type, augmented frame, file name)
         """
         if file_obj is None:
-            return None, 0, "No file uploaded"
+            return None, 0, "No file uploaded", None, ""
             
         try:
             # Load the file
             self.current_data, self.current_type = load_data(file_obj.name)
+            self.current_filename = file_obj.name.split("/")[-1]
             
             # Get first frame based on file type
             if self.current_type == 'image':
@@ -41,12 +43,14 @@ class AugLabInterface:
                 self.total_frames = len(self.current_data['frames'])
             
             self.current_frame_idx = 0
-            return first_frame, self.total_frames, self.current_type
+            # Augmented is just a flip for now
+            augmented = flip_image(first_frame)
+            return first_frame, self.total_frames, self.current_type, augmented, self.current_filename
             
         except Exception as e:
-            return None, 0, f"Error loading file: {str(e)}"
+            return None, 0, f"Error loading file: {str(e)}", None, ""
 
-    def get_frame(self, frame_idx: int) -> np.ndarray:
+    def get_frame(self, frame_idx: int) -> Tuple[np.ndarray, np.ndarray]:
         """
         Get frame at specified index.
         
@@ -54,20 +58,25 @@ class AugLabInterface:
             frame_idx: Index of the frame to retrieve
             
         Returns:
-            Frame as numpy array
+            Tuple of (original frame, augmented frame)
         """
         if self.current_data is None:
-            return None
+            return None, None
             
         try:
             if self.current_type == 'image':
-                return self.current_data
+                frame = self.current_data
             elif self.current_type == 'video':
-                return self.current_data[frame_idx]
+                frame = self.current_data[frame_idx]
             elif self.current_type == 'jsonl':
-                return self.current_data['frames'][frame_idx]
+                frame = self.current_data['frames'][frame_idx]
+            else:
+                return None, None
+            # Augmented is just a flip for now
+            augmented = flip_image(frame)
+            return frame, augmented
         except IndexError:
-            return None
+            return None, None
 
 def create_interface():
     """
@@ -75,28 +84,53 @@ def create_interface():
     """
     interface = AugLabInterface()
     
-    with gr.Blocks(title="AugLab - Interactive Augmentation Playground") as app:
+    with gr.Blocks(title="AugLab - Interactive Augmentation Playground", css="""
+    .arrow-btn {
+        min-width: 36px !important;
+        max-width: 36px !important;
+        min-height: 36px !important;
+        max-height: 36px !important;
+        padding: 0 !important;
+        font-size: 1.5rem !important;
+        border-radius: 6px !important;
+    }
+    .arrow-btn-right {
+        margin-right: 12px !important;
+    }
+    .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    """) as app:
         gr.Markdown("# AugLab - Interactive Augmentation Playground")
         
-        # Top controls: upload, frame slider, file type
+        # Top: Upload, file name, file type grouped in a single box
         with gr.Row():
             with gr.Column():
-                input_file = gr.File(label="Upload Image/Video/JSONL")
-                frame_slider = gr.Slider(
-                    minimum=0,
-                    maximum=100,
-                    step=1,
-                    label="Frame",
-                    interactive=True
-                )
-                file_type = gr.Textbox(label="File Type", interactive=False)
+                with gr.Group():
+                    input_file = gr.File(label="Upload image/video/JSONL")
+                    file_name = gr.Textbox(label="File Name", interactive=False)
+                    file_type = gr.Textbox(label="File Type", interactive=False)
         
-        # Full-width preview row
+        # Middle: Frame navigation (slider and buttons in the same row and group)
         with gr.Row():
-            with gr.Column(scale=1):
-                original_preview = gr.Image(label="Original")
-            with gr.Column(scale=1):
-                augmented_preview = gr.Image(label="Augmented", interactive=False)
+            with gr.Group():
+                with gr.Row(elem_classes=["slider-row"]):
+                    frame_slider = gr.Slider(
+                        minimum=0,
+                        maximum=100,
+                        step=1,
+                        label="Frame",
+                        interactive=True
+                    )
+                    left_btn = gr.Button("←", size="sm", variant="secondary", elem_classes=["arrow-btn"])
+                    right_btn = gr.Button("→", size="sm", variant="secondary", elem_classes=["arrow-btn", "arrow-btn-right"])
+        
+        # Bottom: Previews
+        with gr.Row():
+            original_preview = gr.Image(label="Original", elem_id="original_preview")
+            augmented_preview = gr.Image(label="Augmented", interactive=False, elem_id="augmented_preview")
         
         # Augmentation controls
         with gr.Row():
@@ -119,24 +153,47 @@ def create_interface():
         
         # Event handlers
         def on_file_upload(file_obj):
-            frame, total_frames, file_type = interface.load_file(file_obj)
-            return frame, total_frames, file_type
+            frame, total_frames, file_type_val, augmented, filename = interface.load_file(file_obj)
+            # Always show first frame and set slider to 0
+            return frame, total_frames, file_type_val, augmented, filename, 0
         
         def on_frame_change(frame_idx):
-            frame = interface.get_frame(frame_idx)
-            return frame
+            frame, augmented = interface.get_frame(frame_idx)
+            return frame, augmented
+        
+        def on_left(current_idx):
+            idx = max(0, current_idx - 1)
+            frame, augmented = interface.get_frame(idx)
+            return idx, frame, augmented
+        
+        def on_right(current_idx):
+            idx = min(interface.total_frames - 1, current_idx + 1)
+            frame, augmented = interface.get_frame(idx)
+            return idx, frame, augmented
         
         # Connect events
         input_file.upload(
             fn=on_file_upload,
             inputs=[input_file],
-            outputs=[original_preview, frame_slider, file_type]
+            outputs=[original_preview, frame_slider, file_type, augmented_preview, file_name, frame_slider]
         )
         
         frame_slider.change(
             fn=on_frame_change,
             inputs=[frame_slider],
-            outputs=[original_preview]
+            outputs=[original_preview, augmented_preview]
+        )
+        
+        left_btn.click(
+            fn=on_left,
+            inputs=[frame_slider],
+            outputs=[frame_slider, original_preview, augmented_preview]
+        )
+        
+        right_btn.click(
+            fn=on_right,
+            inputs=[frame_slider],
+            outputs=[frame_slider, original_preview, augmented_preview]
         )
     
     return app 
