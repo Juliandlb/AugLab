@@ -375,7 +375,7 @@ def create_interface():
             return file_path, message
         
         # --- AGENT LOGIC ---
-        def agent_adjust(recommendations_text, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val, frame_slider):
+        def agent_adjust(recommendations_text, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val, current_frame):
             # Reset to default values before applying new adjustments
             new_brightness = 1.0
             new_contrast = 1.0
@@ -404,7 +404,6 @@ def create_interface():
             if "Add occlusion" in recommendations_text:
                 new_occlusion = min(new_occlusion + 0.05, 0.5)
             # Apply the new adjustments to the current frame
-            frame = interface.get_frame(frame_slider)
             params = {
                 'flip_mode': flip_mode.value,
                 'rotation': rotation.value,
@@ -415,11 +414,11 @@ def create_interface():
                 'saturation': new_saturation,
                 'occlusion_size': new_occlusion
             }
-            augmented_frame = apply_augmentation(frame, params)
+            augmented_frame = apply_augmentation(current_frame, params)
             # Compute stats for the augmented frame
             augmented_stats = analyze_sample(augmented_frame)
             # Compare with original stats
-            original_stats = analyze_sample(frame)
+            original_stats = analyze_sample(current_frame)
             # Check if changes are too soft
             if abs(augmented_stats['brightness'] - original_stats['brightness']) < 0.2:
                 new_brightness = min(new_brightness + 0.5, 2.0)
@@ -528,5 +527,10 @@ def create_interface():
             inputs=[flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
             outputs=[config_output, config_message]
         )
+        
+        # --- NEW SECTION: DATABASE INPUT ---
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("### Coming Soon: Database Input\nYou will soon be able to input a complete database for advanced analysis and augmentation.")
     
     return app 
