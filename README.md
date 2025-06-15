@@ -20,6 +20,7 @@ An interactive tool for applying and experimenting with image augmentations on r
   - Only suggests available controls: blur, color jitter (hue/saturation), occlusion, brightness, contrast, sharpness
   - Context-aware advice (e.g., "Apply Blur to reduce sharpness", "Increase color vibrancy using Saturation slider")
   - Brightness, contrast, sharpness, and saturation suggestions
+  - **AI Agent**: Auto-adjusts augmentation sliders based on recommendations for one-click improvements
 - Export augmented data and configurations (images, videos as MP4, JSONL, and config as JSON)
 - Demo Mode: One-click 'Load Demo Sample' button to instantly showcase features with a built-in video
 
