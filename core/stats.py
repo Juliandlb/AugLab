@@ -107,36 +107,41 @@ def analyze_sample(image: np.ndarray) -> Dict[str, float]:
 def get_recommendations(stats: Dict[str, float]) -> List[str]:
     """
     Generate augmentation recommendations based on image statistics.
-    
+    Only suggest augmentations that are implemented.
     Args:
         stats: Dictionary containing image statistics
-        
     Returns:
         List of recommended augmentations
     """
     recommendations = []
-    
+
     # Brightness recommendations
     if stats['brightness'] < 100:
-        recommendations.append("Increase brightness")
+        recommendations.append("Increase brightness using the Brightness slider.")
     elif stats['brightness'] > 200:
-        recommendations.append("Decrease brightness")
-    
+        recommendations.append("Decrease brightness using the Brightness slider.")
+
     # Contrast recommendations
     if stats['contrast'] < 30:
-        recommendations.append("Increase contrast")
+        recommendations.append("Increase contrast using the Contrast slider.")
     elif stats['contrast'] > 100:
-        recommendations.append("Decrease contrast")
-    
+        recommendations.append("Decrease contrast using the Contrast slider.")
+
     # Sharpness recommendations
     if stats['sharpness'] < 100:
-        recommendations.append("Increase sharpness")
-    
+        recommendations.append("Increase sharpness by increasing Contrast.")
+    elif stats['sharpness'] > 300:
+        recommendations.append("Apply Blur to reduce excessive sharpness.")
+
     # Saturation recommendations (for color images)
     if stats['saturation'] > 0:  # Color image
         if stats['saturation'] < 50:
-            recommendations.append("Increase saturation")
+            recommendations.append("Increase color vibrancy using the Saturation or Hue Shift sliders.")
         elif stats['saturation'] > 200:
-            recommendations.append("Decrease saturation")
-    
+            recommendations.append("Reduce color intensity using the Saturation slider.")
+
+    # Occlusion recommendation (if image is too uniform/clean)
+    if stats['entropy'] < 5.0:
+        recommendations.append("Add occlusion (random patch) to increase image diversity.")
+
     return recommendations 
