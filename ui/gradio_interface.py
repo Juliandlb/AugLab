@@ -9,6 +9,7 @@ from core.stats import analyze_sample, get_recommendations
 from typing import Tuple, Dict, Any, Optional
 import cv2
 import imageio
+import random
 
 class AugLabInterface:
     def __init__(self):
@@ -374,41 +375,65 @@ def create_interface():
             return file_path, message
         
         # --- AGENT LOGIC ---
-        def agent_adjust(recommendations_text, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
-            # Start with current values
-            new_brightness = brightness_val
-            new_contrast = contrast_val
-            new_blur = blur_kernel_val
-            new_hue = hue_shift_val
-            new_saturation = saturation_val
-            new_occlusion = occlusion_size_val
+        def agent_adjust(recommendations_text, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val, frame_slider):
+            # Reset to default values before applying new adjustments
+            new_brightness = 1.0
+            new_contrast = 1.0
+            new_blur = 0
+            new_hue = 0
+            new_saturation = 1.0
+            new_occlusion = 0
             # Parse recommendations and adjust accordingly
             if "Increase brightness" in recommendations_text:
-                new_brightness = min(brightness_val + 0.2, 2.0)
+                new_brightness = min(new_brightness + 0.2, 2.0)
             if "Decrease brightness" in recommendations_text:
-                new_brightness = max(brightness_val - 0.2, 0.5)
+                new_brightness = max(new_brightness - 0.2, 0.5)
             if "Increase contrast" in recommendations_text:
-                new_contrast = min(contrast_val + 0.2, 2.0)
+                new_contrast = min(new_contrast + 0.2, 2.0)
             if "Decrease contrast" in recommendations_text:
-                new_contrast = max(contrast_val - 0.2, 0.5)
+                new_contrast = max(new_contrast - 0.2, 0.5)
             if "Apply Blur" in recommendations_text:
-                new_blur = min(blur_kernel_val + 2, 10)
+                new_blur = min(new_blur + 2, 10)
             if "Increase sharpness" in recommendations_text:
-                new_contrast = min(contrast_val + 0.2, 2.0)
+                new_contrast = min(new_contrast + 0.2, 2.0)
             if "Increase color vibrancy" in recommendations_text:
-                new_saturation = min(saturation_val + 0.2, 2.0)
-                new_hue = min(hue_shift_val + 10, 90)
+                new_saturation = min(new_saturation + 0.5, 2.0)
+                new_hue = random.randint(-90, 90)
             if "Reduce color intensity" in recommendations_text:
-                new_saturation = max(saturation_val - 0.2, 0.0)
+                new_saturation = max(new_saturation - 0.2, 0.0)
             if "Add occlusion" in recommendations_text:
-                new_occlusion = min(occlusion_size_val + 0.05, 0.5)
+                new_occlusion = min(new_occlusion + 0.05, 0.5)
+            # Apply the new adjustments to the current frame
+            frame = interface.get_frame(frame_slider)
+            params = {
+                'flip_mode': flip_mode.value,
+                'rotation': rotation.value,
+                'brightness': new_brightness,
+                'contrast': new_contrast,
+                'blur_kernel': new_blur,
+                'hue_shift': new_hue,
+                'saturation': new_saturation,
+                'occlusion_size': new_occlusion
+            }
+            augmented_frame = apply_augmentation(frame, params)
+            # Compute stats for the augmented frame
+            augmented_stats = analyze_sample(augmented_frame)
+            # Compare with original stats
+            original_stats = analyze_sample(frame)
+            # Check if changes are too soft
+            if abs(augmented_stats['brightness'] - original_stats['brightness']) < 0.2:
+                new_brightness = min(new_brightness + 0.5, 2.0)
+            if abs(augmented_stats['contrast'] - original_stats['contrast']) < 0.2:
+                new_contrast = min(new_contrast + 0.5, 2.0)
+            if abs(augmented_stats['saturation'] - original_stats['saturation']) < 0.2:
+                new_saturation = min(new_saturation + 0.5, 2.0)
             return (
                 new_brightness, new_contrast, new_blur, new_hue, new_saturation, new_occlusion
             )
         # Connect agent button
         agent_btn.click(
             fn=agent_adjust,
-            inputs=[recommendations, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
+            inputs=[recommendations, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size, frame_slider],
             outputs=[brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size]
         )
         
