@@ -238,6 +238,7 @@ def create_interface():
             with gr.Column():
                 with gr.Group():
                     input_file = gr.File(label="Upload image/video/JSONL")
+                    demo_btn = gr.Button("Load Demo Sample", variant="secondary")
                     file_name = gr.Textbox(label="File Name", interactive=False)
                     file_type = gr.Textbox(label="File Type", interactive=False)
         
@@ -313,6 +314,16 @@ def create_interface():
             # Set slider max to total_frames-1 (since index is zero-based)
             return frame, gr.update(maximum=max(0, total_frames-1), value=0, minimum=0), file_type_val, aug_img, filename, 0, recommendations_text
         
+        def on_demo_click(flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
+            import types
+            demo_path = os.path.join("examples", "episode_000000.mp4")
+            # Create a fake Gradio File object
+            class DummyFile:
+                def __init__(self, name):
+                    self.name = name
+            demo_file = DummyFile(demo_path)
+            return on_file_upload(demo_file, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val)
+        
         def on_frame_change(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
             frame = interface.get_frame(frame_idx)
             aug_img = interface.get_augmented(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val)
@@ -363,6 +374,12 @@ def create_interface():
         input_file.upload(
             fn=on_file_upload,
             inputs=[input_file, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
+            outputs=[original_preview, frame_slider, file_type, augmented_preview, file_name, frame_slider, recommendations]
+        )
+        
+        demo_btn.click(
+            fn=on_demo_click,
+            inputs=[flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
             outputs=[original_preview, frame_slider, file_type, augmented_preview, file_name, frame_slider, recommendations]
         )
         

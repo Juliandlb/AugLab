@@ -21,6 +21,7 @@ An interactive tool for applying and experimenting with image augmentations on r
   - Context-aware advice (e.g., "Apply Blur to reduce sharpness", "Increase color vibrancy using Saturation slider")
   - Brightness, contrast, sharpness, and saturation suggestions
 - Export augmented data and configurations (images, videos as MP4, JSONL, and config as JSON)
+- Demo Mode: One-click 'Load Demo Sample' button to instantly showcase features with a built-in video
 
 ## Setup
 
@@ -73,6 +74,10 @@ The application analyzes images in real-time to provide actionable, context-awar
 - **Sharpness Detection**: Identifies blurry images and suggests improvements
 - **Saturation Analysis**: For color images, suggests saturation adjustments
 - **Entropy Calculation**: Measures image information content
+
+## Demo Mode
+
+You can instantly showcase AugLab's features using the **Load Demo Sample** button in the UI. This loads a built-in video from the `examples/` directory, so you can try all features without uploading your own files. Perfect for live demos and quick evaluation!
 
 ## License
 
