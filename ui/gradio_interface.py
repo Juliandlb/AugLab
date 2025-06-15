@@ -262,6 +262,10 @@ def create_interface():
             original_preview = gr.Image(label="Original", elem_id="original_preview")
             augmented_preview = gr.Image(label="Augmented", interactive=False, elem_id="augmented_preview")
         
+        # Recommendations section (move above controls)
+        with gr.Row():
+            recommendations = gr.Textbox(label="Augmentation Recommendations", interactive=False)
+        
         # Augmentation controls below previews
         with gr.Row():
             with gr.Group():
@@ -274,10 +278,6 @@ def create_interface():
                 saturation = gr.Slider(minimum=0.0, maximum=2.0, value=1.0, step=0.01, label="Saturation")
                 occlusion_size = gr.Slider(minimum=0, maximum=0.5, value=0, step=0.01, label="Occlusion Size (ratio)")
                 apply_btn = gr.Button("Apply Augmentation", variant="primary")
-        
-        # Recommendations section
-        with gr.Row():
-            recommendations = gr.Textbox(label="Augmentation Recommendations", interactive=False)
         
         # Export section
         with gr.Row():
@@ -304,10 +304,20 @@ def create_interface():
                 'occlusion_size': occlusion_size_val
             }
             frame, total_frames, file_type_val, aug_img, filename = interface.load_file(file_obj)
-            # Get recommendations for the first frame
-            if frame is not None:
-                stats = analyze_sample(frame)
-                recommendations = get_recommendations(stats)
+            # Compute stats for all frames and average them
+            stats_list = []
+            if interface.current_data is not None:
+                if interface.current_type == 'image':
+                    stats_list.append(analyze_sample(interface.current_data))
+                elif interface.current_type == 'video':
+                    for f in interface.current_data:
+                        stats_list.append(analyze_sample(f))
+                elif interface.current_type == 'jsonl':
+                    for f in interface.current_data['frames']:
+                        stats_list.append(analyze_sample(f))
+            if stats_list:
+                avg_stats = {k: float(np.mean([s[k] for s in stats_list])) for k in stats_list[0]}
+                recommendations = get_recommendations(avg_stats)
                 recommendations_text = "\n".join(recommendations) if recommendations else "No recommendations at this time."
             else:
                 recommendations_text = "No recommendations available."
