@@ -1,9 +1,14 @@
 import gradio as gr
 import numpy as np
+import json
+import os
+from datetime import datetime
 from core.loader import load_data
 from core.augment import apply_augmentation, flip_image
 from core.stats import analyze_sample, get_recommendations
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
+import cv2
+import imageio
 
 class AugLabInterface:
     def __init__(self):
@@ -23,6 +28,8 @@ class AugLabInterface:
             'occlusion_size': 0
         }
         self.last_frame_idx = 0
+        self.export_dir = "exports"
+        os.makedirs(self.export_dir, exist_ok=True)
 
     def load_file(self, file_obj: gr.File) -> Tuple[np.ndarray, int, str, np.ndarray, str]:
         """
@@ -103,6 +110,102 @@ class AugLabInterface:
         }
         return apply_augmentation(frame, config)
 
+    def export_augmented_data(self, frame_idx: int, flip_mode: str, rotation: float, brightness: float, contrast: float, blur_kernel: float, hue_shift: float, saturation: float, occlusion_size: float) -> Tuple[str, str]:
+        """
+        Export the current augmented frame or video using the provided augmentation parameters.
+        """
+        if self.current_data is None:
+            return None, "No data loaded"
+        
+        aug_config = {
+            'flip_mode': flip_mode,
+            'rotation': rotation,
+            'brightness': brightness,
+            'contrast': contrast,
+            'blur_kernel': blur_kernel,
+            'hue_shift': hue_shift,
+            'saturation': saturation,
+            'occlusion_size': occlusion_size
+        }
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_name = os.path.splitext(self.current_filename)[0]
+        try:
+            if self.current_type == 'image':
+                aug_img = self.get_augmented(frame_idx, **aug_config)
+                if aug_img is None:
+                    return None, "Failed to generate augmented image"
+                output_path = os.path.join(self.export_dir, f"{base_name}_aug_{timestamp}.png")
+                if aug_img.dtype != np.uint8:
+                    aug_img = np.clip(aug_img, 0, 255).astype(np.uint8)
+                cv2.imwrite(output_path, cv2.cvtColor(aug_img, cv2.COLOR_RGB2BGR))
+                return output_path, f"Exported augmented image to {output_path}"
+            elif self.current_type == 'video':
+                output_path = os.path.join(self.export_dir, f"{base_name}_aug_{timestamp}.mp4")
+                try:
+                    with imageio.get_writer(output_path, fps=30, quality=8) as writer:
+                        for i in range(len(self.current_data)):
+                            aug_frame = self.get_augmented(i, **aug_config)
+                            if aug_frame is not None:
+                                if aug_frame.dtype != np.uint8:
+                                    aug_frame = np.clip(aug_frame, 0, 255).astype(np.uint8)
+                                if aug_frame.shape[2] == 3:
+                                    writer.append_data(aug_frame)
+                                else:
+                                    print(f"[DEBUG] Skipping frame {i}: not 3 channels")
+                            else:
+                                print(f"[DEBUG] Skipping frame {i}: aug_frame is None")
+                    print(f"[DEBUG] Video export complete: {output_path}")
+                except Exception as e:
+                    return None, f"imageio export failed: {str(e)}"
+                return output_path, f"Exported augmented video to {output_path}"
+            elif self.current_type == 'jsonl':
+                output_path = os.path.join(self.export_dir, f"{base_name}_aug_{timestamp}.jsonl")
+                aug_data = self.current_data.copy()
+                aug_data['augmentation_config'] = aug_config
+                if 'frames' in aug_data:
+                    for i, frame in enumerate(aug_data['frames']):
+                        aug_frame = self.get_augmented(i, **aug_config)
+                        if aug_frame is not None:
+                            frame['augmented'] = True
+                            frame['augmentation_params'] = aug_config
+                with open(output_path, 'w') as f:
+                    json.dump(aug_data, f, indent=2)
+                return output_path, f"Exported augmented JSONL to {output_path}"
+        except Exception as e:
+            return None, f"Export failed: {str(e)}"
+
+    def export_config(self, flip_mode: str, rotation: float, brightness: float, contrast: float, blur_kernel: float, hue_shift: float, saturation: float, occlusion_size: float) -> Tuple[str, str]:
+        """
+        Export the current augmentation configuration using the provided parameters.
+        """
+        if self.current_data is None:
+            return None, "No data loaded"
+        aug_config = {
+            'flip_mode': flip_mode,
+            'rotation': rotation,
+            'brightness': brightness,
+            'contrast': contrast,
+            'blur_kernel': blur_kernel,
+            'hue_shift': hue_shift,
+            'saturation': saturation,
+            'occlusion_size': occlusion_size
+        }
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_name = os.path.splitext(self.current_filename)[0]
+        try:
+            config_data = {
+                'filename': self.current_filename,
+                'file_type': self.current_type,
+                'augmentation_config': aug_config,
+                'timestamp': timestamp
+            }
+            output_path = os.path.join(self.export_dir, f"{base_name}_config_{timestamp}.json")
+            with open(output_path, 'w') as f:
+                json.dump(config_data, f, indent=2)
+            return output_path, f"Exported configuration to {output_path}"
+        except Exception as e:
+            return None, f"Export failed: {str(e)}"
+
 def create_interface():
     """
     Creates and returns the Gradio interface for AugLab.
@@ -177,8 +280,15 @@ def create_interface():
         
         # Export section
         with gr.Row():
-            export_btn = gr.Button("Export Augmented Data")
-            save_config_btn = gr.Button("Save Augmentation Config")
+            with gr.Column():
+                export_btn = gr.Button("Export Augmented Data", variant="primary")
+                export_output = gr.File(label="Download Exported Data")
+                export_message = gr.Textbox(label="Export Status", interactive=False)
+            
+            with gr.Column():
+                save_config_btn = gr.Button("Save Augmentation Config", variant="secondary")
+                config_output = gr.File(label="Download Configuration")
+                config_message = gr.Textbox(label="Config Status", interactive=False)
         
         # Event handlers
         def on_file_upload(file_obj, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
@@ -236,6 +346,18 @@ def create_interface():
             stats = analyze_sample(frame)
             recommendations = get_recommendations(stats)
             return aug_img, "\n".join(recommendations) if recommendations else "No recommendations at this time."
+        
+        def on_export(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
+            file_path, message = interface.export_augmented_data(
+                frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val
+            )
+            return file_path, message
+            
+        def on_save_config(flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
+            file_path, message = interface.export_config(
+                flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val
+            )
+            return file_path, message
         
         # Connect events
         input_file.upload(
@@ -316,6 +438,18 @@ def create_interface():
             fn=on_apply,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
             outputs=[augmented_preview, recommendations]
+        )
+        
+        export_btn.click(
+            fn=on_export,
+            inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
+            outputs=[export_output, export_message]
+        )
+        
+        save_config_btn.click(
+            fn=on_save_config,
+            inputs=[flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
+            outputs=[config_output, config_message]
         )
     
     return app 

@@ -20,7 +20,7 @@ An interactive tool for applying and experimenting with image augmentations on r
   - Only suggests available controls: blur, color jitter (hue/saturation), occlusion, brightness, contrast, sharpness
   - Context-aware advice (e.g., "Apply Blur to reduce sharpness", "Increase color vibrancy using Saturation slider")
   - Brightness, contrast, sharpness, and saturation suggestions
-- Export augmented data and configurations (coming soon)
+- Export augmented data and configurations (images, videos as MP4, JSONL, and config as JSON)
 
 ## Setup
 
@@ -62,7 +62,7 @@ auglab/
 - ✅ Frame navigation with synchronized previews
 - ✅ Support for multiple file formats (images, videos, JSONL)
 - ✅ Smart recommendations based on image analysis
-- 🔄 Export functionality (in development)
+- ✅ Export functionality (images, videos as MP4, JSONL, and config as JSON)
 
 ## Image Analysis Features
 
@@ -76,4 +76,8 @@ The application analyzes images in real-time to provide actionable, context-awar
 
 ## License
 
-MIT License 
+MIT License
+
+## Notes on Video Export
+
+Video export uses [imageio[ffmpeg]](https://imageio.readthedocs.io/en/stable/) for robust MP4 support. If you encounter issues with video export, ensure you have the required dependencies installed (see requirements.txt). 
