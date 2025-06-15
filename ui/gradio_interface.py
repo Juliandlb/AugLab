@@ -264,7 +264,9 @@ def create_interface():
         
         # Recommendations section (move above controls)
         with gr.Row():
-            recommendations = gr.Textbox(label="Augmentation Recommendations", interactive=False)
+            with gr.Column():
+                recommendations = gr.Textbox(label="Augmentation Recommendations", interactive=False)
+                agent_btn = gr.Button("Let the Agent Adjust", elem_id="agent_btn", variant="primary")
         
         # Augmentation controls below previews
         with gr.Row():
@@ -277,7 +279,6 @@ def create_interface():
                 hue_shift = gr.Slider(minimum=-90, maximum=90, value=0, step=1, label="Hue Shift (degrees)")
                 saturation = gr.Slider(minimum=0.0, maximum=2.0, value=1.0, step=0.01, label="Saturation")
                 occlusion_size = gr.Slider(minimum=0, maximum=0.5, value=0, step=0.01, label="Occlusion Size (ratio)")
-                apply_btn = gr.Button("Apply Augmentation", variant="primary")
         
         # Export section
         with gr.Row():
@@ -360,14 +361,6 @@ def create_interface():
             recommendations = get_recommendations(stats)
             return idx, frame, aug_img, "\n".join(recommendations) if recommendations else "No recommendations at this time."
         
-        def on_apply(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
-            aug_img = interface.get_augmented(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val)
-            # Get recommendations based on current frame
-            frame = interface.get_frame(frame_idx)
-            stats = analyze_sample(frame)
-            recommendations = get_recommendations(stats)
-            return aug_img, "\n".join(recommendations) if recommendations else "No recommendations at this time."
-        
         def on_export(frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
             file_path, message = interface.export_augmented_data(
                 frame_idx, flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val
@@ -379,6 +372,45 @@ def create_interface():
                 flip_mode_val, rotation_val, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val
             )
             return file_path, message
+        
+        # --- AGENT LOGIC ---
+        def agent_adjust(recommendations_text, brightness_val, contrast_val, blur_kernel_val, hue_shift_val, saturation_val, occlusion_size_val):
+            # Start with current values
+            new_brightness = brightness_val
+            new_contrast = contrast_val
+            new_blur = blur_kernel_val
+            new_hue = hue_shift_val
+            new_saturation = saturation_val
+            new_occlusion = occlusion_size_val
+            # Parse recommendations and adjust accordingly
+            if "Increase brightness" in recommendations_text:
+                new_brightness = min(brightness_val + 0.2, 2.0)
+            if "Decrease brightness" in recommendations_text:
+                new_brightness = max(brightness_val - 0.2, 0.5)
+            if "Increase contrast" in recommendations_text:
+                new_contrast = min(contrast_val + 0.2, 2.0)
+            if "Decrease contrast" in recommendations_text:
+                new_contrast = max(contrast_val - 0.2, 0.5)
+            if "Apply Blur" in recommendations_text:
+                new_blur = min(blur_kernel_val + 2, 10)
+            if "Increase sharpness" in recommendations_text:
+                new_contrast = min(contrast_val + 0.2, 2.0)
+            if "Increase color vibrancy" in recommendations_text:
+                new_saturation = min(saturation_val + 0.2, 2.0)
+                new_hue = min(hue_shift_val + 10, 90)
+            if "Reduce color intensity" in recommendations_text:
+                new_saturation = max(saturation_val - 0.2, 0.0)
+            if "Add occlusion" in recommendations_text:
+                new_occlusion = min(occlusion_size_val + 0.05, 0.5)
+            return (
+                new_brightness, new_contrast, new_blur, new_hue, new_saturation, new_occlusion
+            )
+        # Connect agent button
+        agent_btn.click(
+            fn=agent_adjust,
+            inputs=[recommendations, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
+            outputs=[brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size]
+        )
         
         # Connect events
         input_file.upload(
@@ -413,58 +445,51 @@ def create_interface():
         
         # Add real-time updates for augmentation controls
         flip_mode.change(
-            fn=on_apply,
+            fn=on_frame_change,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
-            outputs=[augmented_preview, recommendations]
+            outputs=[original_preview, augmented_preview, recommendations]
         )
         
         rotation.change(
-            fn=on_apply,
+            fn=on_frame_change,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
-            outputs=[augmented_preview, recommendations]
+            outputs=[original_preview, augmented_preview, recommendations]
         )
         
         brightness.change(
-            fn=on_apply,
+            fn=on_frame_change,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
-            outputs=[augmented_preview, recommendations]
+            outputs=[original_preview, augmented_preview, recommendations]
         )
         
         contrast.change(
-            fn=on_apply,
+            fn=on_frame_change,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
-            outputs=[augmented_preview, recommendations]
+            outputs=[original_preview, augmented_preview, recommendations]
         )
         
         blur_kernel.change(
-            fn=on_apply,
+            fn=on_frame_change,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
-            outputs=[augmented_preview, recommendations]
+            outputs=[original_preview, augmented_preview, recommendations]
         )
         
         hue_shift.change(
-            fn=on_apply,
+            fn=on_frame_change,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
-            outputs=[augmented_preview, recommendations]
+            outputs=[original_preview, augmented_preview, recommendations]
         )
         
         saturation.change(
-            fn=on_apply,
+            fn=on_frame_change,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
-            outputs=[augmented_preview, recommendations]
+            outputs=[original_preview, augmented_preview, recommendations]
         )
         
         occlusion_size.change(
-            fn=on_apply,
+            fn=on_frame_change,
             inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
-            outputs=[augmented_preview, recommendations]
-        )
-        
-        # Keep the apply button for explicit updates if needed
-        apply_btn.click(
-            fn=on_apply,
-            inputs=[frame_slider, flip_mode, rotation, brightness, contrast, blur_kernel, hue_shift, saturation, occlusion_size],
-            outputs=[augmented_preview, recommendations]
+            outputs=[original_preview, augmented_preview, recommendations]
         )
         
         export_btn.click(
